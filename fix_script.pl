@@ -1,3 +1,16 @@
+#!/usr/bin/perl
+use warnings;
+use strict;
+
+while (<>) {
+
+  unless (/^\@/) {
+    warn "$_ should have had an \@ at the start and it didn't\n";
+    next;
+  }
+  my $id1 = $_;
+  my $seq = <>;
+  my $id2 = <>;
   my $qual = <>;
 
   if ($seq =~/^[@+]/) {
