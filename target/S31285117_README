@@ -1,0 +1,14 @@
+Regions.bed
+Targeted exon intervals, curated and targeted by Agilent Technologies
+
+MergedProbes.bed
+Merged probes for targeted enrichment of exons described in Regions.bed
+
+Covered.bed
+Merged probes and sequences with 95% homology or above
+
+Padded.bed
+Merged probes and sequences with 95% homology or above extended 100 bp at each side
+
+AllTracks.bed
+Targeted regions and covered tracks
