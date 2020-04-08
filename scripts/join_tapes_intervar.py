@@ -3,6 +3,7 @@ import csv
 from collections import defaultdict
 import numpy as np
 import argparse
+import urllib.parse
 
 
 def select_fields(d, keys):
@@ -139,6 +140,7 @@ def merge(tapes_row, inter_var_row):
                                                          (inter_var_row, "gnomAD_genome_ASJ")),
         "gnomAD_genome_FIN(Finnish)": get_value((tapes_row, "gnomAD_genome_FIN"), (inter_var_row, "gnomAD_genome_FIN")),
         "gnomAD_genome_OTH": get_value((tapes_row, "gnomAD_genome_OTH"), (inter_var_row, "gnomAD_genome_OTH")),
+        "Gene.ensGene": get_value((tapes_row, "Gene.ensGene"), (inter_var_row, "Gene.ensGene")),
 
         **{
             key: get_value((tapes_row, key), (inter_var_row, key)) for key in
@@ -155,12 +157,12 @@ def merge(tapes_row, inter_var_row):
                 "SIFT_score",
                 "SIFT_converted_rankscore",
                 "SIFT_pred",
-                "gnomAD_genome_AFR",
-                "gnomAD_genome_AMR",
-                "gnomAD_genome_ASJ",
-                "gnomAD_genome_EAS",
-                "gnomAD_genome_FIN",
-                "gnomAD_genome_NFE",
+                #"gnomAD_genome_AFR",
+                #"gnomAD_genome_AMR",
+                #"gnomAD_genome_ASJ",
+                #"gnomAD_genome_EAS",
+                #"gnomAD_genome_FIN",
+                #"gnomAD_genome_NFE",
                 "gnomAD_genome_OTH",
                 "dbscSNV_ADA_SCORE",
                 "dbscSNV_RF_SCORE"
@@ -269,6 +271,8 @@ def get_chr_key(chr_value):
         return 100000
     elif chr_type == "Y":
         return 110000
+    elif chr_type == "M":
+        return 120000
     else:
         return int(chr_type)
 
@@ -276,7 +280,60 @@ def get_chr_key(chr_value):
 def df_sort(df, col, key):
     keys = [key(x) for x in df[col]]
     argsort_inds = np.argsort(keys)
-    return result.iloc[argsort_inds]
+    return df.iloc[argsort_inds]
+
+
+def generate_varsome_url(row):
+    # https://varsome.com/variant/hg19/chr1:247588858:C:A
+    return "https://varsome.com/variant/hg19/" + urllib.parse.quote("{chr}:{start}:{ref}:{alt}".format(**row))
+
+
+def split_by_condition(arr, predicate):
+    true_array = []
+    false_array = []
+
+    for x in arr:
+        if predicate(x):
+            true_array.append(x)
+        else:
+            false_array.append(x)
+
+    return true_array, false_array
+
+
+def collect_sheets(result):
+    sheets = [("All", result)]
+
+    result = result[~result["clinical_signature"].isnull()]
+    groups_pool = list(result.groupby('clinical_signature', as_index=False))
+
+    def key_in_string(key):
+        return lambda s: key in s
+
+    def key_in_string_ignore_case(key):
+        key = key.lower()
+        return lambda s: key in s.lower()
+
+    names_with_predicates = [
+        ("Benign", key_in_string_ignore_case("Benign")),
+        ("Pathogenic", key_in_string("Pathogenic")),
+        ("Likely pathogenic", key_in_string("Likely_pathogenic")),
+        ("Uncertain significance", key_in_string("Uncertain_significance"))
+    ]
+
+    def add_sheet(name, groups):
+        if len(groups) > 0:
+            dfs = [df for key, df in groups]
+            sheets.append((name, pd.concat(dfs, ignore_index=True)))
+
+    for name, predicate in names_with_predicates:
+        key_groups, groups_pool = split_by_condition(groups_pool, lambda name_df: predicate(name_df[0]))
+        add_sheet(name, key_groups)
+
+    add_sheet("Other", groups_pool)
+
+    sheets = [(name, df_sort(df, "chr", get_chr_key)) for name, df in sheets]
+    return sheets
 
 
 if __name__ == "__main__":
@@ -292,12 +349,17 @@ if __name__ == "__main__":
 
     result = join_tables(tapes, inter_var)
 
+    result = result[result["chr"] != 'chrM']
+
+    result["varsome"] = ['=HYPERLINK("{url}")'.format(url=generate_varsome_url(row)) for row in iterdicts(result)]
+
     result = place_cols_to_front(result, [
         "chr",
         "start",
         "end",
         "ref",
         "alt",
+        "varsome",
         "read_depth",
         "Max-likelihood estimate of the first ALT allele frequency",
         "Allele frequency in gnomAD genome set",
@@ -312,11 +374,55 @@ if __name__ == "__main__":
         "gene_refgene",
         "exon_replacement_type",
         "zygosity",
-        "clinical_signature"
-
+        "clinical_signature",
+        "Gene.ensGene",
+        "AAChange.refGene",
+        "CLNALLELEID",
+        "Disease_description.refGene",
+        "Expression(egenetics).refGene",
+        "FATHMM_converted_rankscore",
+        "FATHMM_pred",
+        "FATHMM_score",
+        "Function_description.refGene",
+        "Gene_full_name.refGene",
+        "ID_in_db_hereditary_diseases",
+        "LRT_converted_rankscore",
+        "LRT_pred",
+        "LRT_score",
+        "MutationAssessor_pred",
+        "MutationAssessor_score_rankscore",
+        "MutationTaster_converted_rankscore",
+        "MutationTaster_pred    MutationAssessor_score",
+        "MutationTaster_score",
+        "P(HI).refGene",
+        "P(rec).refGene",
+        "PROVEAN_converted_rankscore",
+        "PROVEAN_pred",
+        "PROVEAN_score",
+        "Polyphen2_HDIV_pred",
+        "Polyphen2_HDIV_rankscore",
+        "Polyphen2_HDIV_score",
+        "Polyphen2_HVAR_pred",
+        "Polyphen2_HVAR_rankscore",
+        "Polyphen2_HVAR_score",
+        "Review_status_in_ClinVar",
+        "SIFT_converted_rankscore",
+        "SIFT_pred",
+        "SIFT_score",
+        "Tissue_specificity(Uniprot).refGene",
+        "associated_disease",
+        "dbscSNV_ADA_SCORE",
+        "dbscSNV_RF_SCORE",
+        "gene_associated_disease",
+        "gnomad.genome.AFR(African/African American)",
+        "gnomAD_genome_AMR(Admixed American)",
+        "gnomAD_genome_ASJ(Ashkenazi Jewish)",
+        "gnomad.genome.EAS(East Asian)",
+        "gnomAD_genome_FIN(Finnish)",
+        "gnomad.genome.NFE(Non-Finnish European)",
+        "where_gene_expressed"
     ])
 
-    result = result[~result["clinical_signature"].isnull()]
-    result = df_sort(result, "chr", get_chr_key)
-
-    result.to_csv(args.out, sep="\t", na_rep='.', index=False)
+    with pd.ExcelWriter(args.out) as writer:
+        for sheet_name, df in collect_sheets(result):
+            df.to_excel(writer, na_rep='.', index=False, sheet_name=sheet_name)

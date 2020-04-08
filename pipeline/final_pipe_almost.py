@@ -37,15 +37,16 @@ else:
     sys.exit("E: number of files in path not 1 or 2")
 
 where_to_start = sys.argv[2]
-where_to_start_list = ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "coverage", "vcf",
-                       "ann"]
+where_to_start_list = ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "bam_sort", "bam_dup",
+                       "bam_index", "coverage", "vcf", "ann"]
 if where_to_start not in where_to_start_list:
     sys.exit("E: instead of \"" + sys.argv[3] +
              "\" you can choose: fq, fastq_sort, fastqc, trimming, sam, second_fastqc, bam, coverage, vcf or " +
              "ann")
 
 do_until = sys.argv[3]
-do_until_list = ["trimming", "fastqc", "sam", "second_fastqc", "bam", "coverage", "vcf", "vcf_only", "ann", "analysis",
+do_until_list = ["trimming", "fastqc", "sam", "second_fastqc", "bam", "bam_sort", "bam_dup",
+                 "bam_index", "coverage", "vcf", "vcf_only", "ann", "analysis",
                  "full"]
 if do_until not in do_until_list:
     sys.exit("E: instead of \"" + sys.argv[3] +
@@ -53,13 +54,14 @@ if do_until not in do_until_list:
              " second_fastqc, bam, coverage, vcf, vcf_only, ann, analysis or full")
 
 choose_ur_bed = sys.argv[4]
-bed_list = ["V6", "V7"]
+bed_list = ["v6", "v7", "V6", "V7"]
 if choose_ur_bed not in bed_list:
     sys.exit("E: instead of \"" + sys.argv[4] +
              "\" you can choose: V6 or V7")
 
-print(file1[-3:])
-print(input_file_types)
+if where_to_start in ["fq", "fastq_sort"]:
+    print(file1[-3:])
+    print(input_file_types)
 
 startTime = datetime.now()
 print(str(datetime.now() - startTime) + " starting")
@@ -116,10 +118,6 @@ if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming"]:
                                          "SE", "-threads", "4", path + "/" + sorted_files[0],
                                          path + "/trimmed_" + file2, "HEADCROP:3"])
     if do_until != "analysis":
-        os.remove(path + "/" + sample_name + "_1_sort.fq")
-        if input_file_types == "PE fq":
-            os.remove(path + "/" + sample_name + "_2_sort.fq")
-    if do_until != "analysis":
         os.remove(path + "/" + sample_name + "_1.fq")
         if input_file_types == "PE fq":
             os.remove(path + "/" + sample_name + "_2.fq")
@@ -136,6 +134,7 @@ if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam"]:
         os.remove(path + "/trimmed_" + file1)
         if input_file_types == "PE fq":
             os.remove(path + "/trimmed_" + file2)
+    print(str(datetime.now() - startTime) + " for mapping")
 if do_until == "sam":
     sys.exit("sam done")
 
@@ -151,8 +150,10 @@ if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_f
         os.remove(path + "/" + sample_name + ".sam")
 if do_until == "bam":
     sys.exit("bam done")
+if do_until == "analysis":
+    sys.exit("analysis done here at bam")
 
-# here second fastqc
+"""# here second fastqc
 if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc"]:
     if do_until != "vcf_only":
         if not os.path.isdir(path + "/second"):
@@ -160,20 +161,22 @@ if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_f
         process = subprocess.check_call(["/home/anyapavlova/downloads/FastQC/fastqc", "-t", "4", "-o",
                                          path + "/second", path + "/" + sample_name + ".sam"])
         print(str(datetime.now() - startTime) + " for second fastqc")
-        if do_until == "second_fastqc":
-            sys.exit("second_fastqc done")
+if do_until == "second_fastqc":
+    sys.exit("second_fastqc done")"""
 
 # for sorting bams
-if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam"]:
+if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "bam_sort"]:
     process = subprocess.check_call(["/home/bioinf/programs/samtools/samtools-1.9/samtools", "sort", "-o",
                                      path + "/sorted_" + sample_name + ".bam", "--threads", "4",
                                      path + "/" + sample_name + ".bam"])
     print(str(datetime.now() - startTime) + " for sorting bams")
     if do_until != "analysis":
         os.remove(path + "/" + sample_name + ".bam")
+if do_until == "bam_sort":
+    sys.exit("bam_sort done")
 
 # for cleaning from duplicates
-if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam"]:
+if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "bam_sort", "bam_dup"]:
     process = subprocess.check_call(["java", "-jar", "/home/bioinf/programs/Picard/picard.jar",
                                      "MarkDuplicates", "I=" + path + "/" + "sorted_" + sample_name + ".bam",
                                      "O=" + path + "/marked_" + sample_name + ".bam",
@@ -182,25 +185,31 @@ if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_f
     print(str(datetime.now() - startTime) + " for cleaning from duplicates")
     if do_until != "analysis":
         os.remove(path + "/sorted_" + sample_name + ".bam")
+if do_until == "bam_dup":
+    sys.exit("bam_dup done")
 
 # maybe indexing
 os.chdir(path)
-if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam"]:
+if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "bam_sort", "bam_dup",
+                      "bam_index"]:
     process = subprocess.check_call(["/home/bioinf/programs/samtools/samtools-1.9/samtools",
                                      "index", "-@", "4",
                                      "marked_" + sample_name + ".bam"])
     print(str(datetime.now() - startTime) + " for indexing")
+if do_until == "bam_index":
+    sys.exit("bam_index done")
 
 # for NGSrich (may be some problems with path)
-if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "coverage"]:
+if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "bam_sort", "bam_dup",
+                      "bam_index", "coverage"]:
     os.chdir("/home/bioinf/programs/ngsrich/NGSrich_0.7.8/bin")
-    if choose_ur_bed == "V6":
+    if choose_ur_bed == "V6" or choose_ur_bed == "v6":
         process = subprocess.check_call(["java", "NGSrich", "evaluate",
                                          "-r", path + "/marked_" + sample_name + ".bam",
                                          "-u", "hg19",
                                          "-t", "/home/bioinf/dont_change/Exome-Agilent_V6.bed",
                                          "-o", path + "/NGSrich"])
-    elif choose_ur_bed == "V7":
+    elif choose_ur_bed == "V7" or choose_ur_bed == "v7":
         process = subprocess.check_call(["java", "NGSrich", "evaluate",
                                          "-r", path + "/marked_" + sample_name + ".bam",
                                          "-u", "hg19",
@@ -213,15 +222,16 @@ if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_f
 # v7 bed /home/bioinf/data/target/S31285117_Covered.bed
 
 # for mosdepth
-if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "coverage"]:
-    if choose_ur_bed == "V6":
+if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "bam_sort", "bam_dup",
+                      "bam_index", "coverage"]:
+    if choose_ur_bed == "V6" or choose_ur_bed == "v6":
         os.system(
             "/home/bioinf/programs/miniconda3/bin/mosdepth -t 4 --by /home/bioinf/dont_change/Exome-Agilent_V6.bed "
             + sample_name + " " + path + "/marked_" + sample_name + ".bam")
         process = subprocess.check_call(
             ["python", "/home/bioinf/programs/miniconda3/pkgs/mosdepth-0.2.5-hb763d49_0/plot-dist.py",
              path + "/" + sample_name + ".mosdepth.global.dist.txt"])
-    elif choose_ur_bed == "V7":
+    elif choose_ur_bed == "V7" or choose_ur_bed == "v7":
         os.system(
             "/home/bioinf/programs/miniconda3/bin/mosdepth -t 4 --by /home/bioinf/data/target/S31285117_Covered.bed "
             + sample_name + " " + path + "/marked_" + sample_name + ".bam")
@@ -233,7 +243,8 @@ if do_until == "coverage":
     sys.exit("coverage done")
 
 # for vcf
-if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "coverage", "vcf"]:
+if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "bam_sort", "bam_dup",
+                      "bam_index", "coverage", "vcf"]:
     process = subprocess.check_call(["/home/bioinf/programs/bcftools/bcftools-1.9/./bcftools", "mpileup",
                                      path + "/marked_" + sample_name + ".bam", "-o", path + "/" + sample_name + ".vcf",
                                      "-Ov", "-f",
@@ -241,7 +252,8 @@ if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_f
     print(str(datetime.now() - startTime) + " for vcf")
 
 # filter vcf from empty strings and stars
-if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "coverage", "vcf"]:
+if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "bam_sort", "bam_dup",
+                      "bam_index", "coverage", "vcf"]:
     process = subprocess.check_call(["python3.5", "/home/bioinf/pipeline/vcf_filter.py",
                                      path + "/" + sample_name + ".vcf",
                                      path + "/filtered_" + sample_name + ".vcf"])
@@ -255,8 +267,8 @@ if do_until == "vcf" or do_until == "vcf_only":
     sys.exit("vcf done")
 
 # for annotation
-if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "coverage", "vcf",
-                      "ann"]:
+if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "bam_sort", "bam_dup",
+                      "bam_index", "coverage", "vcf", "ann"]:
     process = subprocess.check_call(["/home/bioinf/programs/ensembl-vep/vep",
                                      "-i", path + "/" + sample_name + "_no_stars.vcf",
                                      "-o", path + "/ann_" + sample_name + ".vcf",
@@ -268,8 +280,8 @@ if do_until == "ann":
     sys.exit("ann done")
 
 # for pathogenicity level
-if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "coverage", "vcf",
-                      "ann"]:
+if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "bam_sort", "bam_dup",
+                      "bam_index", "coverage", "vcf", "ann"]:
     process = subprocess.check_call(["python3.5", "/home/bioinf/programs/intervar/InterVar/Intervar.py",
                                      "-b", "hg19",
                                      "-i", path + "/" + sample_name + "_no_stars.vcf", "--input_type=VCF",
@@ -282,7 +294,8 @@ if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_f
     print(str(datetime.now() - startTime) + " for pathogenenicity level")
 
 # for snpEff
-if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "coverage", "vcf",
+if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "bam_sort", "bam_dup",
+                      "bam_index", "coverage", "vcf",
                       "ann"]:
     os.system(
         "java -Xmx4g -jar /home/bioinf/programs/snpEff/snpEff/snpEff.jar -c "
