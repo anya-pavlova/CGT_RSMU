@@ -3,7 +3,7 @@ import os
 import argparse
 import subprocess
 import logging
-from shutil import move, copy
+from shutil import move,copyfile, copy
 from glob import glob
 
 parser = argparse.ArgumentParser()
@@ -35,7 +35,7 @@ for lane, lane_bar_codes in zip(lanes, lanes_bar_codes):
     for bar_code in lane_bar_codes:
         for read in ["1", "2"]:
             file_name = "{}_L0{}_{}_{}.fq.gz".format(args.run_name, lane, bar_code, read)
-            copy(os.path.join(input_folder, file_name), os.path.join(output_folder, file_name))
+            copyfile(os.path.join(input_folder, file_name), os.path.join(output_folder, file_name))
 
 for read in ["1", "2"]:
     pattern = "**_{}.fq.gz".format(read)

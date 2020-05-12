@@ -12,8 +12,7 @@ sample_name = path.split("/")[-1]
 
 input_files = []
 for filename in glob.glob(path + "/*"):
-    if filename.split("/")[-1] == sample_name + "_1.fq.gz" or filename.split("/")[
-        -1] == sample_name + "_2.fq.gz":  # or last dir from path
+    if filename.split("/")[-1] == sample_name + "_1.fq.gz" or filename.split("/")[-1] == sample_name + "_2.fq.gz":
         input_files.append(filename)
 if len(input_files) == 0:
     for filename in glob.glob(path + "/*"):
@@ -44,7 +43,7 @@ do_until_list = ["trimming", "fastqc", "sam", "second_fastqc", "bam", "coverage"
                  "full"]
 if do_until not in do_until_list:
     sys.exit("E: instead of \"" + sys.argv[
-        2] + "\" you can chouse: trimming, fastqc, sam, second_fastqc, bam, coverage, vcf, vcf_only, ann, analysis or full")
+        2] + "\" you can choose: trimming, fastqc, sam, second_fastqc, bam, coverage, vcf, vcf_only, ann, analysis or full")
 
 print(file1[-3:])
 print(input_file_types)
@@ -182,7 +181,7 @@ os.chdir("/home/bioinf/programs/ngsrich/NGSrich_0.7.8/bin")
 process = subprocess.check_call(["java", "NGSrich", "evaluate",
                                  "-r", path + "/marked_" + sample_name + ".bam",
                                  "-u", "hg19",
-                                 "-t", "/home/bioinf/dont_change/hg19_bed/human_hg19.bed",
+                                 "-t", "/home/bioinf/data/target/S31285117_Covered.bed",
                                  "-o", path + "/NGSrich"])
 os.chdir(path)
 print(str(datetime.now() - startTime) + " for NGSrich")
@@ -192,7 +191,7 @@ print(str(datetime.now() - startTime) + " for NGSrich")
 
 # for mosdepth
 os.system(
-    "/home/bioinf/programs/miniconda3/bin/mosdepth --by /home/bioinf/dont_change/Exome-Agilent_V6.bed " + sample_name + " " + path + "/marked_" + sample_name + ".bam")
+    "/home/bioinf/programs/miniconda3/bin/mosdepth --by /home/bioinf/data/target/S31285117_Covered.bed " + sample_name + " " + path + "/marked_" + sample_name + ".bam")
 process = subprocess.check_call(
     ["python", "/home/bioinf/programs/miniconda3/pkgs/mosdepth-0.2.5-hb763d49_0/plot-dist.py",
      path + "/" + sample_name + ".mosdepth.global.dist.txt"])

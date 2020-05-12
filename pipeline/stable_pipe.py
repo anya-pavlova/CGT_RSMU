@@ -12,8 +12,7 @@ sample_name = path.split("/")[-1]
 
 input_files = []
 for filename in glob.glob(path + "/*"):
-    if filename.split("/")[-1] == sample_name + "_1.fq.gz" or filename.split("/")[
-        -1] == sample_name + "_2.fq.gz":  # or last dir from path
+    if filename.split("/")[-1] == sample_name + "_1.fq.gz" or filename.split("/")[-1] == sample_name + "_2.fq.gz":
         input_files.append(filename)
 if len(input_files) == 0:
     for filename in glob.glob(path + "/*"):
@@ -44,7 +43,7 @@ do_until_list = ["trimming", "fastqc", "sam", "second_fastqc", "bam", "coverage"
                  "full"]
 if do_until not in do_until_list:
     sys.exit("E: instead of \"" + sys.argv[
-        2] + "\" you can chouse: trimming, fastqc, sam, second_fastqc, bam, coverage, vcf, vcf_only, ann, analysis or full")
+        2] + "\" you can choose: trimming, fastqc, sam, second_fastqc, bam, coverage, vcf, vcf_only, ann, analysis or full")
 
 print(file1[-3:])
 print(input_file_types)
@@ -88,39 +87,31 @@ for input_file in not_sorted_files:
 # for trimming!!!!!!!!!!!!!!!!!!make_CROP_system!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! and change places with fastqc
 process = subprocess.check_call(["java", "-jar",
                                  "/home/bioinf/programs/trimmomatic/Trimmomatic-0.39/trimmomatic-0.39.jar",
-                                 "SE", path + "/" + sorted_files[0], path + "/trimmed" + file1, "HEADCROP:3"])
+                                 "SE", "-threads", "2", path + "/" + sorted_files[0], path + "/trimmed" + file1,
+                                 "HEADCROP:3"])
 if input_file_types == "PE fq":
     process = subprocess.check_call(["java", "-jar",
                                      "/home/bioinf/programs/trimmomatic/Trimmomatic-0.39/trimmomatic-0.39.jar",
-                                     "SE", path + "/" + sorted_files[1], path + "/trimmed" + file2, "HEADCROP:3"])
+                                     "SE", "-threads", "2", path + "/" + sorted_files[1], path + "/trimmed" + file2,
+                                     "HEADCROP:3"])
 print(str(datetime.now() - startTime) + " for trimming")
 if do_until == "trimming":
     sys.exit("trimming done")
 
 # for quality test
-process = subprocess.check_call(["/home/anyapavlova/downloads/FastQC/fastqc", "-o",
+process = subprocess.check_call(["/home/anyapavlova/downloads/FastQC/fastqc", "-t", "2", "-o",
                                  path, path + "/trimmed" + file1])
 if input_file_types == "PE fq":
-    process = subprocess.check_call(["/home/anyapavlova/downloads/FastQC/fastqc", "-o",
+    process = subprocess.check_call(["/home/anyapavlova/downloads/FastQC/fastqc", "-t", "2", "-o",
                                      path, path + "/trimmed" + file2])
 print(str(datetime.now() - startTime) + " for quality test")
 if do_until == "fastqc":
     sys.exit("fastqc done")
 
-"""# for mapping
-if input_file_types == "PE fq":
-    process=subprocess.check_call(["bowtie2", "-x",
-"/home/bioinf/data/reference_human_hg19/Homo_sapiens/UCSC/hg19/Sequence/Bowtie2Index/genome",
-"-1", path+"/trimmed"+file1, "-2", path+"/trimmed"+file2, "-S", path+"/"+sample_name+".sam"])
-elif input_file_types == "SE fq":
-    process=subprocess.check_call(["bowtie2", "-x",
-"/home/bioinf/data/reference_human_hg19/Homo_sapiens/UCSC/hg19/Sequence/Bowtie2Index/genome",
-"-U", path+"/trimmed"+file1, "-S", path+"/"+sample_name+".sam"])
-print(str(datetime.now()-startTime)+" for mapping")"""
-
+# for mapping
 os.system("bwa mem " +
           "/home/bioinf/data/reference_human_hg19/Homo_sapiens/UCSC/hg19/Sequence/BWAIndex/version0.7.12/genome.fa " +
-          path + "/trimmed" + file1 + " " + path + "/trimmed" + file2 + " > " + path + "/" + sample_name + ".sam")
+          path + "/trimmed" + file1 + " " + path + "/trimmed" + file2 + " -t 2 > " + path + "/" + sample_name + ".sam")
 if do_until == "sam":
     sys.exit("sam done")
 
@@ -128,6 +119,7 @@ if do_until != "analysis":
     os.remove(path + "/trimmed" + file1)
     if input_file_types == "PE fq":
         os.remove(path + "/trimmed" + file2)
+print(str(datetime.now()-startTime)+" for mapping")
 
 # for converting sam to bam
 process = subprocess.check_call(["/home/bioinf/programs/samtools/samtools-1.9/samtools",
@@ -142,14 +134,14 @@ if do_until != "analysis":
     os.remove(path + "/" + sample_name + ".sam")
 
 # here second fastqc
-if do_until != "vcf_only":
+"""if do_until != "vcf_only":
     if not os.path.isdir(path + "/second"):
         os.makedirs(path + "/second")
     process = subprocess.check_call(["/home/anyapavlova/downloads/FastQC/fastqc", "-o",
                                      path + "/second", path + "/" + sample_name + ".sam"])
     print(str(datetime.now() - startTime) + " for second fastqc")
     if do_until == "second_fastqc":
-        sys.exit("second_fastqc done")
+        sys.exit("second_fastqc done")"""
 
 # for sorting bams
 process = subprocess.check_call(["/home/bioinf/programs/samtools/samtools-1.9/samtools", "sort", "-o",
@@ -182,9 +174,10 @@ os.chdir("/home/bioinf/programs/ngsrich/NGSrich_0.7.8/bin")
 process = subprocess.check_call(["java", "NGSrich", "evaluate",
                                  "-r", path + "/marked_" + sample_name + ".bam",
                                  "-u", "hg19",
-                                 "-t", "/home/bioinf/dont_change/hg19_bed/human_hg19.bed",
+                                 "-t", "/home/bioinf/data/target/S31285117_Covered.bed",
                                  "-o", path + "/NGSrich"])
 os.chdir(path)
+
 print(str(datetime.now() - startTime) + " for NGSrich")
 
 # v6 bed /home/bioinf/dont_change/Exome-Agilent_V6.bed
@@ -192,11 +185,18 @@ print(str(datetime.now() - startTime) + " for NGSrich")
 
 # for mosdepth
 os.system(
-    "/home/bioinf/programs/miniconda3/bin/mosdepth --by /home/bioinf/dont_change/Exome-Agilent_V6.bed " + sample_name + " " + path + "/marked_" + sample_name + ".bam")
+    "/home/bioinf/programs/miniconda3/bin/mosdepth --by /home/bioinf/data/target/S31285117_Covered.bed " + sample_name + " " + path + "/marked_" + sample_name + ".bam")
 process = subprocess.check_call(
     ["python", "/home/bioinf/programs/miniconda3/pkgs/mosdepth-0.2.5-hb763d49_0/plot-dist.py",
      path + "/" + sample_name + ".mosdepth.global.dist.txt"])
 print(str(datetime.now() - startTime) + " for mosdepth")
+
+# for insert size
+process = subprocess.check_call(
+        ["java", "-jar", "/home/bioinf/programs/Picard/picard.jar", "CollectInsertSizeMetrics",
+         "I=" + path + "/marked_" + sample_name + ".bam",
+         "O=" + path + "/insert_size_metrics.txt", "H=" + path + "/insert_size_histogram.pdf", "M=0.5"])
+print(str(datetime.now() - startTime) + " for insert size")
 if do_until == "coverage":
     sys.exit("coverage done")
 

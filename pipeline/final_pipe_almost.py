@@ -94,13 +94,14 @@ if where_to_start in ["fq", "fastq_sort"]:
                                    "--id", os.path.join(path, file_without_gz_extension)], stdout=out)
 
         sorted_files.append(output_file)
+    print(str(datetime.now() - startTime) + " for fq sort")
 
 # for quality test
 if where_to_start in ["fq", "fastq_sort", "fastqc"]:
-    process = subprocess.check_call(["/home/anyapavlova/downloads/FastQC/fastqc", "-t", "4", "-o",
+    process = subprocess.check_call(["/home/anyapavlova/downloads/FastQC/fastqc", "-t", "8", "-o",
                                      path, path + "/" + sorted_files[0]])
     if input_file_types == "PE fq":
-        process = subprocess.check_call(["/home/anyapavlova/downloads/FastQC/fastqc", "-t", "4", "-o",
+        process = subprocess.check_call(["/home/anyapavlova/downloads/FastQC/fastqc", "-t", "8", "-o",
                                          path, path + "/" + sorted_files[1]])
     print(str(datetime.now() - startTime) + " for quality test")
 if do_until == "fastqc":
@@ -115,7 +116,7 @@ if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming"]:
     if input_file_types == "PE fq":
         process = subprocess.check_call(["java", "-jar",
                                          "/home/bioinf/programs/trimmomatic/Trimmomatic-0.39/trimmomatic-0.39.jar",
-                                         "SE", "-threads", "4", path + "/" + sorted_files[0],
+                                         "SE", "-threads", "8", path + "/" + sorted_files[0],
                                          path + "/trimmed_" + file2, "HEADCROP:3"])
     if do_until != "analysis":
         os.remove(path + "/" + sample_name + "_1.fq")
@@ -129,11 +130,7 @@ if do_until == "trimming":
 if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam"]:
     os.system("bwa mem " +
               "/home/bioinf/data/reference_human_hg19/Homo_sapiens/UCSC/hg19/Sequence/BWAIndex/version0.7.12/genome.fa " +
-              path + "/trimmed_" + file1 + " " + path + "/trimmed_" + file2 + " -t 4 > " + path + "/" + sample_name + ".sam")
-    if do_until != "analysis":
-        os.remove(path + "/trimmed_" + file1)
-        if input_file_types == "PE fq":
-            os.remove(path + "/trimmed_" + file2)
+              path + "/trimmed_" + file1 + " " + path + "/trimmed_" + file2 + " -t 8 > " + path + "/" + sample_name + ".sam")
     print(str(datetime.now() - startTime) + " for mapping")
 if do_until == "sam":
     sys.exit("sam done")
@@ -143,22 +140,24 @@ if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_f
     process = subprocess.check_call(["/home/bioinf/programs/samtools/samtools-1.9/samtools",
                                      "view", "-bS",
                                      "-o", path + "/" + sample_name + ".bam",
-                                     "-@", "4",
+                                     "-@", "8",
                                      path + "/" + sample_name + ".sam"])
     print(str(datetime.now() - startTime) + " for converting sam to bam")
     if do_until != "analysis":
         os.remove(path + "/" + sample_name + ".sam")
+if do_until != "analysis":
+    os.remove(path + "/trimmed_" + file1)
+    if input_file_types == "PE fq":
+        os.remove(path + "/trimmed_" + file2)
 if do_until == "bam":
     sys.exit("bam done")
-if do_until == "analysis":
-    sys.exit("analysis done here at bam")
 
 """# here second fastqc
 if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc"]:
     if do_until != "vcf_only":
         if not os.path.isdir(path + "/second"):
             os.makedirs(path + "/second")
-        process = subprocess.check_call(["/home/anyapavlova/downloads/FastQC/fastqc", "-t", "4", "-o",
+        process = subprocess.check_call(["/home/anyapavlova/downloads/FastQC/fastqc", "-t", "8", "-o",
                                          path + "/second", path + "/" + sample_name + ".sam"])
         print(str(datetime.now() - startTime) + " for second fastqc")
 if do_until == "second_fastqc":
@@ -167,7 +166,7 @@ if do_until == "second_fastqc":
 # for sorting bams
 if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "bam_sort"]:
     process = subprocess.check_call(["/home/bioinf/programs/samtools/samtools-1.9/samtools", "sort", "-o",
-                                     path + "/sorted_" + sample_name + ".bam", "--threads", "4",
+                                     path + "/sorted_" + sample_name + ".bam", "--threads", "8",
                                      path + "/" + sample_name + ".bam"])
     print(str(datetime.now() - startTime) + " for sorting bams")
     if do_until != "analysis":
@@ -239,8 +238,20 @@ if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_f
             ["python", "/home/bioinf/programs/miniconda3/pkgs/mosdepth-0.2.5-hb763d49_0/plot-dist.py",
              path + "/" + sample_name + ".mosdepth.global.dist.txt"])
     print(str(datetime.now() - startTime) + " for mosdepth")
+
+# for insert size
+if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "bam_sort", "bam_dup",
+                      "bam_index", "coverage"]:
+    process = subprocess.check_call(
+        ["sudo", "java", "-jar", "/home/bioinf/programs/Picard/picard.jar", "CollectInsertSizeMetrics",
+         "I=" + path + "/marked_" + sample_name + ".bam",
+         "O=" + path + "/insert_size_metrics.txt", "H=" + path + "/insert_size_histogram.pdf", "M=0.5"])
+    print(str(datetime.now() - startTime) + " for insert size")
 if do_until == "coverage":
     sys.exit("coverage done")
+
+if do_until == "analysis":
+    sys.exit("analysis done here at insert size")
 
 # for vcf
 if where_to_start in ["fq", "fastq_sort", "fastqc", "trimming", "sam", "second_fastqc", "bam", "bam_sort", "bam_dup",
