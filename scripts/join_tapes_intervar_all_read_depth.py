@@ -292,7 +292,7 @@ def fill_read_depth(result, read_depth_map):
 
     result["read_depth"] = read_depth
 
-    print("Filled {} missing read depths. Couldn't fill {} missing read depths".format(n_filled_values, n_missing))
+    
     return result
 
 
